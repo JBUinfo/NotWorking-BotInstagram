@@ -69,10 +69,10 @@ async function login() {
 
   request.post(headerTemporal, function(error, response, body) {
     let cookieOne= response.headers['set-cookie'][7];//csrftoken
-    let cookieTwo= response.headers['set-cookie'][8];//rur
-    let cookieThree= response.headers['set-cookie'][9];//mid
-    let cookieFour= response.headers['set-cookie'][10];//userid
-    let cookieFive= response.headers['set-cookie'][11];//sessionid
+    let cookieTwo= response.headers['set-cookie'][response.headers['set-cookie'].length-4];//rur
+    let cookieThree= response.headers['set-cookie'][response.headers['set-cookie'].length-3];//mid
+    let cookieFour= response.headers['set-cookie'][response.headers['set-cookie'].length-2];//userid
+    let cookieFive= response.headers['set-cookie'][response.headers['set-cookie'].length-1];//sessionid
     cookieOne=cookieOne.substring(0,cookieOne.indexOf(";")+1);
     csrf = cookieOne.substring(cookieOne.indexOf("=")+1,cookieOne.indexOf(";"));
     cookieTwo=cookieTwo.substring(0,cookieTwo.indexOf(";")+1);
@@ -159,7 +159,7 @@ async function searchHastag(word) {
 async function getFollowers() {
   let flag = true;
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A24%7D';
+  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A100000%7D';
   headerTemporal.headers.method = 'GET';
   headerTemporal.headers['accept-encoding'] = 'deflate, br';
   try {
@@ -185,7 +185,7 @@ async function getFollowers() {
 async function getFollowing() {
   let flag = true;
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A24%7D';
+  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A100000%7D';
   headerTemporal.headers.method = 'GET';
   headerTemporal.headers['accept-encoding'] = 'deflate, br';
   try {
@@ -206,7 +206,7 @@ async function getFollowing() {
 }
 
 async function unfollowFollowers() {
-  getFollowers();
+  await getFollowers();
   for (let i = 0; i < followed.length; i++) {
     if (!mutualFollow[followed[i]]) {
       unfollow(followed[i]);
@@ -225,13 +225,9 @@ async function likeHastags() {
 }
 
 async function commentHastags() {
-  let random = 0;
-  let arrayOfComments = photosHastags;
   for (let e of Object.keys(photosHastags)) {
     console.log('Dejando comentario');
-    random = Math.floor(Math.random() * comentarios.length-1);
-    addComment(e,comentarios[random]);
-    comentarios.slice(0, 1, comentarios[random]);
+    addComment(e,comentarios[Math.floor(Math.random() * comentarios.length-1)]);
     await sleep(1000*60*33);
   };
   flagComments = false;
