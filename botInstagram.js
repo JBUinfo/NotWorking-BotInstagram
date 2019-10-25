@@ -1,8 +1,9 @@
 const request = require('request');
-const USER = 'kolemomon';
-const PASS = 'BotoInstagramo';
-const hastaggs = ['hiphop','rap','live','trap','rapero','freestyle','musicfragments','hiphopmusic','rapper','musica','soundcloud','fragmentos','youtube','music'];
-const comentarios = ['Me encantan tus fotos!','Sigueme!'];
+const USER = '';
+const PASS = '';
+// const hastaggs = ['hiphop','rap','live','trap','rapero','freestyle','musicfragments','hiphopmusic','rapper','musica','soundcloud','fragmentos','youtube','music'];
+const hastaggs = ['programming','gaming','code','coding','pc','computer','hack','comida','hacker'];
+const comentarios = ['🔥🔥🔥','👌💯','Vibes.','Niceeee  🤯','Fresh 🛸','🔝🔝🔝','Esto es 💥💥💥','💯💯💯','Me gusta lo que subes , sigue así 🔥🔥🔥','Vengo de Marte Bro 🛸👽🛸😂'];
 let photosHastags = [];
 let peopleHastags = [];
 let flagLikes = true;
@@ -11,6 +12,7 @@ let flagComments = true;
 let userid = '';
 let followers = [];
 let following = [];
+let mutualFollow = [];
 let header = {
   url: '',
   headers: {
@@ -32,7 +34,7 @@ function sleep(ms) {
     setTimeout(resolve,ms);
   })
 }
- 
+
 async function login() {
   let flag = true;
   let csrf = '';
@@ -158,11 +160,16 @@ async function getFollowers() {
   let flag = true;
   let headerTemporal = header;
   headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A24%7D';
+  headerTemporal.headers.method = 'GET';
+  headerTemporal.headers['accept-encoding'] = 'deflate, br';
   try {
-    request.post(headerTemporal, function(error, response, body){
+    request(headerTemporal, function(error, response, body){
       body = JSON.parse(body);
       for (let i = 0; i < Object.keys(body.data.user.edge_followed_by.edges).length; i++) {
         followers[i] = body.data.user.edge_followed_by.edges[i].node.id;
+      }
+      for (let i = 0; i < Object.keys(body.data.user.edge_mutual_followed_by.edges).length; i++) {
+        mutualFollow[i] = body.data.user.edge_mutual_followed_by.edges[i].node.id;
       }
       flag=false;
     });
@@ -180,11 +187,10 @@ async function getFollowing() {
   let headerTemporal = header;
   headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A24%7D';
   headerTemporal.headers.method = 'GET';
-  headerTemporal.headers['accept-encoding'] = 'gzip, deflate, br';
+  headerTemporal.headers['accept-encoding'] = 'deflate, br';
   try {
-    request.post(headerTemporal, function(error, response, body){
+    request(headerTemporal, function(error, response, body){
       body = JSON.parse(body);
-      console.log(body);
       for (let i = 0; i < Object.keys(body.data.user.edge_follow.edges).length; i++) {
         following[i] = body.data.user.edge_follow.edges[i].node.id;
       }
@@ -200,28 +206,12 @@ async function getFollowing() {
 }
 
 async function unfollowFollowers() {
-  let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A24%7D';
-  try {
-    request.post(headerTemporal, async function(error, response, body){
-      let followed = [];
-      let mutualFollow = [];
-      for (let i = 0; i < Object.keys(body.data.user.edge_followed_by.edges).length; i++) {
-        followed[i] = body.data.user.edge_followed_by.edges[i].node.id;
-      }
-      for (let i = 0; i < Object.keys(body.data.user.edge_mutual_followed_by.edges).length; i++) {
-        mutualFollow[i] = body.data.user.edge_mutual_followed_by.edges[i].node.id;
-      }
-
-      for (let i = 0; i < followed.length; i++) {
-        if (!mutualFollow[followed[i]]) {
-          unfollow(followed[i]);
-          await sleep(60000);
-        }
-      }
-    });
-  } catch (e) {
-    console.log(e);
+  getFollowers();
+  for (let i = 0; i < followed.length; i++) {
+    if (!mutualFollow[followed[i]]) {
+      unfollow(followed[i]);
+      await sleep(60000);
+    }
   }
 }
 
@@ -272,20 +262,20 @@ function callback(error, response, body) {
     let contador = 0;
     while (true) {
       contador++
-      console.log(contador);
+      console.log('Times finished: '+ contador);
       await login();
       for (let i = 0; i < hastaggs.length; i++) {
         await searchHastag(hastaggs[i]);
       }
-      // await getFollowing();
-      // for (let i = 0; i < following.length; i++) {
-      //   if (peopleHastags[following[i]]) {
-      //     peopleHastags.splice(0, 1, following[i]);
-      //   }
-      // }
-      // if (peopleHastags.length < 50) {
-      //   continue;
-      // }
+      await getFollowing();
+      for (let i = 0; i < following.length; i++) {
+        if (peopleHastags[following[i]]) {
+          peopleHastags.splice(0, 1, following[i]);
+        }
+      }
+      if (peopleHastags.length < 50) {
+        continue;
+      }
       likeHastags();
       followHastags();
       commentHastags();
@@ -296,6 +286,10 @@ function callback(error, response, body) {
       flagLikes = true;
       flagFollows = true;
       flagComments = true;
+      photosHastags = [];
+      peopleHastags = [];
+      followers = [];
+      following = [];
     }
   } catch (e) {
     console.log(e);
