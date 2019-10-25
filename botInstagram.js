@@ -1,6 +1,19 @@
 const request = require('request');
-const USER = '';
-const PASS = '';
+const mysql = require('mysql');
+const connection = mysql.createConnection({
+  host     : 'localhost',
+  user     : 'XXXXX',
+  password : 'XXXXX',
+  database : 'XXXXX'
+});
+
+connection.connect(function(err) {
+  if (err) throw err;
+  console.log("Connected!");
+});
+
+const USER = 'XXXXX';//user ig
+const PASS = 'XXXXX';//pass ig
 // const hastaggs = ['hiphop','rap','live','trap','rapero','freestyle','musicfragments','hiphopmusic','rapper','musica','soundcloud','fragmentos','youtube','music'];
 const hastaggs = ['programming','gaming','code','coding','pc','computer','hack','comida','hacker'];
 const comentarios = ['🔥🔥🔥','👌💯','Vibes.','Niceeee  🤯','Fresh 🛸','🔝🔝🔝','Esto es 💥💥💥','💯💯💯','Me gusta lo que subes , sigue así 🔥🔥🔥','Vengo de Marte Bro 🛸👽🛸😂'];
@@ -127,10 +140,46 @@ function addComment(id,comment) {
   headerTemp.url = 'https://www.instagram.com/web/comments/'+id+'/add/';
   headerTemp.form = {};
   headerTemp.form.comment_text = comment;
-  try {
-    request.post(headerTemp, callback);
-  } catch (e) {
-    console.log(e);
+  connection.query('SELECT XXXXX from YYYYYYY where XXXXX like "'+id+'"', function (error, results, fields) {
+    if (error) throw error;
+    if (results != []) {
+      try {
+        request.post(headerTemp, function() {
+          connection.query("INSERT INTO YYYYYYY (XXXXX) VALUES ('"+id+"')", function (err, result) {if (err) throw err;});
+        });
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  });
+
+
+
+}
+
+async function loadMoreOnHastag(word, hashNext) {
+  let flag = true;
+  let flagTwo = true;
+  let headerTemporal = header;
+  for (let i = 0; i < 7; i++) {
+    flagTwo = true;
+    headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=174a5243287c5f3a7de741089750ab3b&variables=%7B%22tag_name%22%3A%22'+word+'%22%2C%22first%22%3A4%2C%22after%22%3A%22'+hashNext+'%22%7D';
+    request(headerTemporal, function(error, response, body) {
+      body = JSON.parse(body);
+      for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
+        photosHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
+        peopleHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+      }
+      for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_media.edges).length; i++) {
+        photosHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
+        peopleHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
+      }
+      hashNext = body.data.hashtag.edge_hashtag_to_media.page_info.end_cursor;
+      flagTwo=false;
+    });
+    while (flagTwo) {
+      await sleep(2000);
+    }
   }
 }
 
@@ -138,7 +187,7 @@ async function searchHastag(word) {
   let flag = true;
   let headerTemporal = header;
   headerTemporal.url = 'https://www.instagram.com/explore/tags/'+word+'/?__a=1';
-  request(headerTemporal, function(error, response, body) {
+  request(headerTemporal, async function(error, response, body) {
     body = JSON.parse(body);
     for (let i = 0; i < Object.keys(body.graphql.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
       photosHastags[body.graphql.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
@@ -148,6 +197,7 @@ async function searchHastag(word) {
       photosHastags[body.graphql.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
       peopleHastags[body.graphql.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
     }
+    await loadMoreOnHastag(word, body.graphql.hashtag.edge_hashtag_to_media.page_info.end_cursor)
     flag=false;
   });
   while (flag) {
