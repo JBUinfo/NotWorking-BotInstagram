@@ -142,7 +142,7 @@ function addComment(id,comment) {
   headerTemp.form.comment_text = comment;
   connection.query('SELECT XXXXX from YYYYYYY where XXXXX like "'+id+'"', function (error, results, fields) {
     if (error) throw error;
-    if (results != []) {
+    if (results == []) {
       try {
         request.post(headerTemp, function() {
           connection.query("INSERT INTO YYYYYYY (XXXXX) VALUES ('"+id+"')", function (err, result) {if (err) throw err;});
