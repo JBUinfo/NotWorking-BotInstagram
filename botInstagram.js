@@ -1,10 +1,24 @@
 const request = require('request');
 const mysql = require('mysql');
+const USER_IG = '';
+const PASS_IG = "";
+
+const USER_DB = "";
+const PASS_DB = "";
+const HOST_DB = "";
+const NAME_DB = "";
+const TABLE_NAME_DB = "";
+const COLUMN_NAME_DB = "";
+
+const MINUTES_LIKES = 8;
+const MINUTES_FOLLOW = 30;
+const MINUTES_COMMENT = 33;
+
 const connection = mysql.createConnection({
-  host     : 'localhost',
-  user     : 'XXXXX',
-  password : 'XXXXX',
-  database : 'XXXXX'
+  host     : USER_DB,
+  user     : PASS_DB,
+  password : HOST_DB,
+  database : NAME_DB
 });
 
 connection.connect(function(err) {
@@ -12,10 +26,8 @@ connection.connect(function(err) {
   console.log("Connected!");
 });
 
-const USER = 'XXXXX';//user ig
-const PASS = 'XXXXX';//pass ig
-// const hastaggs = ['hiphop','rap','live','trap','rapero','freestyle','musicfragments','hiphopmusic','rapper','musica','soundcloud','fragmentos','youtube','music'];
-const hastaggs = ['programming','gaming','code','coding','pc','computer','hack','comida','hacker'];
+
+const hastaggs = ['hiphop','rap','live','trap','rapero','freestyle','musicfragments','hiphopmusic','rapper','musica','soundcloud','fragmentos','youtube','music'];
 const comentarios = ['🔥🔥🔥','👌💯','Vibes.','Niceeee  🤯','Fresh 🛸','🔝🔝🔝','Esto es 💥💥💥','💯💯💯','Me gusta lo que subes , sigue así 🔥🔥🔥','Vengo de Marte Bro 🛸👽🛸😂'];
 let photosHastags = [];
 let peopleHastags = [];
@@ -73,8 +85,8 @@ async function login() {
   headerTemporal.url = 'https://www.instagram.com/accounts/login/ajax/?hl=es';
   headerTemporal.headers['X-CSRFToken'] = csrf
   headerTemporal.form = {
-    'username': USER,
-    'password': PASS,
+    'username': USER_IG,
+    'password': PASS_IG,
     'enc_password': '',
     'queryParams': {"hl":"es","source":"auth_switcher"},
     'optIntoOneTap': 'false'
@@ -140,20 +152,19 @@ function addComment(id,comment) {
   headerTemp.url = 'https://www.instagram.com/web/comments/'+id+'/add/';
   headerTemp.form = {};
   headerTemp.form.comment_text = comment;
-  connection.query('SELECT XXXXX from YYYYYYY where XXXXX like "'+id+'"', function (error, results, fields) {
+  connection.query('SELECT '+COLUMN_NAME_DB+' from '+TABLE_NAME_DB+' where idPhoto like "'+id+'"', function (error, results, fields) {
     if (error) throw error;
     if (results == []) {
       try {
-        request.post(headerTemp, function() {
-          connection.query("INSERT INTO YYYYYYY (XXXXX) VALUES ('"+id+"')", function (err, result) {if (err) throw err;});
+        request.post(headerTemp, function(error, response, body) {
+          callback(error, response, body);
+          connection.query("INSERT INTO "+COLUMN_NAME_DB+" VALUES ('"+id+"')", function (err, result) {if (err) throw err;});
         });
       } catch (e) {
         console.log(e);
       }
     }
   });
-
-
 
 }
 
@@ -269,7 +280,7 @@ async function likeHastags() {
   for (let e of Object.keys(photosHastags)) {
     console.log('dando like');
     like(e);
-    await sleep(1000*60*8);
+    await sleep(1000*60*MINUTES_LIKES);
   };
   flagLikes = false;
 }
@@ -278,7 +289,7 @@ async function commentHastags() {
   for (let e of Object.keys(photosHastags)) {
     console.log('Dejando comentario');
     addComment(e,comentarios[Math.floor(Math.random() * comentarios.length-1)]);
-    await sleep(1000*60*33);
+    await sleep(1000*60*MINUTES_COMMENT);
   };
   flagComments = false;
 }
@@ -287,15 +298,15 @@ async function followHastags() {
   for (let e of Object.keys(peopleHastags)) {
     console.log('dando follow');
     follow(e);
-    await sleep(1000*60*30);
+    await sleep(1000*60*MINUTES_FOLLOW);
   }
   flagFollows = false;
 }
 
 function callback(error, response, body) {
   if (error || response.statusCode != 200) {
-    console.log(error);
     console.log(body);
+    login();
   }
 }
 
