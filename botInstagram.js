@@ -1,5 +1,6 @@
 const request = require('request');
 const mysql = require('mysql');
+
 const USER_IG = '';
 const PASS_IG = "";
 
@@ -15,9 +16,9 @@ const MINUTES_FOLLOW = 30;
 const MINUTES_COMMENT = 33;
 
 const connection = mysql.createConnection({
-  host     : USER_DB,
-  user     : PASS_DB,
-  password : HOST_DB,
+  host     : HOST_DB,
+  user     : USER_DB,
+  password : PASS_DB,
   database : NAME_DB
 });
 
@@ -61,6 +62,9 @@ function sleep(ms) {
 }
 
 async function login() {
+  header.headers.cookie='';
+  header.headers['x-csrftoken']='';
+  header.headers['X-Instagram-AJAX']='';
   let flag = true;
   let csrf = '';
   let rollout_hash = '';
@@ -68,100 +72,109 @@ async function login() {
   let headerTemporal = header;
   headerTemporal.url = 'https://www.instagram.com/accounts/login/?source=auth_switcher';
   headerTemporal.headers.method = 'GET';
+  try {
+    request(headerTemporal, async function(error, response, body) {
+      let substr = response.body.substring(response.body.indexOf('"csrf_token":"')+14,response.body.length);
+      csrf = substr.substring(0,substr.indexOf('"'));
+      rollout_hash = substr.substring(substr.indexOf('"rollout_hash":"'+16),substr.indexOf('"'));
+      flag = false;
+    });
 
-  request(headerTemporal, function(error, response, body) {
-    let substr = response.body.substring(response.body.indexOf('"csrf_token":"')+14,response.body.length);
-    csrf = substr.substring(0,substr.indexOf('"'));
-    rollout_hash = substr.substring(substr.indexOf('"rollout_hash":"'+16),substr.indexOf('"'));
-    flag = false;
-  });
+    while(flag) {
+      console.log('Getting csrf');
+      await sleep(2000);
+    }
+    flag= true;
 
-  while(flag) {
-    console.log('Getting csrf');
-    await sleep(2000);
-  }
-  flag= true;
+    headerTemporal.url = 'https://www.instagram.com/accounts/login/ajax/?hl=es';
+    headerTemporal.headers['x-csrftoken'] = csrf
+    headerTemporal.form = {
+      'username': USER_IG,
+      'password': PASS_IG,
+      'enc_password': '',
+      'queryParams': {"hl":"es","source":"auth_switcher"},
+      'optIntoOneTap': 'false'
+    }
 
-  headerTemporal.url = 'https://www.instagram.com/accounts/login/ajax/?hl=es';
-  headerTemporal.headers['X-CSRFToken'] = csrf
-  headerTemporal.form = {
-    'username': USER_IG,
-    'password': PASS_IG,
-    'enc_password': '',
-    'queryParams': {"hl":"es","source":"auth_switcher"},
-    'optIntoOneTap': 'false'
-  }
+    request.post(headerTemporal, function(error, response, body) {
+      let cookieOne= response.headers['set-cookie'][7];//csrftoken
+      let cookieTwo= response.headers['set-cookie'][response.headers['set-cookie'].length-4];//rur
+      let cookieThree= response.headers['set-cookie'][response.headers['set-cookie'].length-3];//mid
+      let cookieFour= response.headers['set-cookie'][response.headers['set-cookie'].length-2];//userid
+      let cookieFive= response.headers['set-cookie'][response.headers['set-cookie'].length-1];//sessionid
+      cookieOne=cookieOne.substring(0,cookieOne.indexOf(";")+1);
+      csrf = cookieOne.substring(cookieOne.indexOf("=")+1,cookieOne.indexOf(";"));
+      cookieTwo=cookieTwo.substring(0,cookieTwo.indexOf(";")+1);
+      cookieThree=cookieThree.substring(0,cookieThree.indexOf(";")+1);
+      cookieFour=cookieFour.substring(0,cookieFour.indexOf(";")+1);
+      userid=cookieFour.substring(cookieFour.indexOf("=")+1,cookieFour.indexOf(";"));
+      cookieFive=cookieFive.substring(0,cookieFive.indexOf(";")+1);
+      header.headers.cookie=cookieOne+cookieTwo+cookieThree+cookieFour+cookieFive;
+      header.headers['x-csrftoken']=csrf;
+      header.headers['X-Instagram-AJAX']=rollout_hash;
+      delete header.form
+      flag=false;
+    });
 
-  request.post(headerTemporal, function(error, response, body) {
-    let cookieOne= response.headers['set-cookie'][7];//csrftoken
-    let cookieTwo= response.headers['set-cookie'][response.headers['set-cookie'].length-4];//rur
-    let cookieThree= response.headers['set-cookie'][response.headers['set-cookie'].length-3];//mid
-    let cookieFour= response.headers['set-cookie'][response.headers['set-cookie'].length-2];//userid
-    let cookieFive= response.headers['set-cookie'][response.headers['set-cookie'].length-1];//sessionid
-    cookieOne=cookieOne.substring(0,cookieOne.indexOf(";")+1);
-    csrf = cookieOne.substring(cookieOne.indexOf("=")+1,cookieOne.indexOf(";"));
-    cookieTwo=cookieTwo.substring(0,cookieTwo.indexOf(";")+1);
-    cookieThree=cookieThree.substring(0,cookieThree.indexOf(";")+1);
-    cookieFour=cookieFour.substring(0,cookieFour.indexOf(";")+1);
-    userid=cookieFour.substring(cookieFour.indexOf("=")+1,cookieFour.indexOf(";"));
-    cookieFive=cookieFive.substring(0,cookieFive.indexOf(";")+1);
-    header.headers.cookie=cookieOne+cookieTwo+cookieThree+cookieFour+cookieFive;
-    header.headers['x-csrftoken']=csrf;
-    header.headers['X-Instagram-AJAX']=rollout_hash;
-    flag=false;
-  });
-
-  while (flag) {
-    console.log('Getting cookies');
-    await sleep(2000);
+    while (flag) {
+      console.log('Getting cookies');
+      await sleep(2000);
+    }
+  } catch (e) {
+    console.log(e);
+    console.log('Fallo login');
   }
 }
 
 function follow(id) {
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/web/friendships/'+id+'/follow/';
+  headerTemporal.url = `https://www.instagram.com/web/friendships/${id}/follow/`;
   try {
-    request.post(headerTemporal, callback);
+    request.post(headerTemporal, getError);
   } catch (e) {
     console.log(e);
+    console.log('Fallo follow');
   }
 }
 
 function unfollow(id) {
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/web/friendships/'+id+'/unfollow/';
+  headerTemporal.url = `https://www.instagram.com/web/friendships/${id}/unfollow/`;
   try {
-    request.post(headerTemporal, callback);
+    request.post(headerTemporal, getError);
   } catch (e) {
     console.log(e);
+    console.log('Fallo unfollow');
   }
 }
 
 function like(id) {
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/web/likes/'+id+'/like/';
+  headerTemporal.url = `https://www.instagram.com/web/likes/${id}/like/`;
   try {
-    request.post(headerTemporal, callback);
+    request.post(headerTemporal, getError);
   } catch (e) {
     console.log(e);
+    console.log('Fallo like');
   }
 }
 
 function addComment(id,comment) {
   let headerTemp = header;
-  headerTemp.url = 'https://www.instagram.com/web/comments/'+id+'/add/';
+  headerTemp.url = `https://www.instagram.com/web/comments/${id}/add/`;
   headerTemp.form = {};
   headerTemp.form.comment_text = comment;
-  connection.query('SELECT '+COLUMN_NAME_DB+' from '+TABLE_NAME_DB+' where idPhoto like "'+id+'"', function (error, results, fields) {
+  connection.query(`SELECT ${COLUMN_NAME_DB} from ${TABLE_NAME_DB} where idPhoto like "${id}"`, function (error, results, fields) {
     if (error) throw error;
     if (results == []) {
       try {
-        request.post(headerTemp, function(error, response, body) {
-          callback(error, response, body);
-          connection.query("INSERT INTO "+COLUMN_NAME_DB+" VALUES ('"+id+"')", function (err, result) {if (err) throw err;});
+        request.post(headerTemp, async function(error, response, body) {
+          await getError(error, response, body);
+          connection.query(`INSERT INTO ${COLUMN_NAME_DB} VALUES ("${id}")`, function (err, result) {if (err) throw err;});
         });
       } catch (e) {
         console.log(e);
+        console.log('Fallo addComment');
       }
     }
   });
@@ -172,59 +185,76 @@ async function loadMoreOnHastag(word, hashNext) {
   let flag = true;
   let flagTwo = true;
   let headerTemporal = header;
-  for (let i = 0; i < 7; i++) {
-    flagTwo = true;
-    headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=174a5243287c5f3a7de741089750ab3b&variables=%7B%22tag_name%22%3A%22'+word+'%22%2C%22first%22%3A4%2C%22after%22%3A%22'+hashNext+'%22%7D';
-    request(headerTemporal, function(error, response, body) {
-      body = JSON.parse(body);
-      for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
-        photosHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
-        peopleHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+  try {
+    for (let i = 0; i < 7; i++) {
+      flagTwo = true;
+      headerTemporal.url = `https://www.instagram.com/graphql/query/?query_hash=174a5243287c5f3a7de741089750ab3b&variables=%7B%22tag_name%22%3A%22${word}%22%2C%22first%22%3A4%2C%22after%22%3A%22${hashNext}%22%7D`;
+      request(headerTemporal, async function(error, response, body) {
+        if (response.statusCode == 200) {
+          if (body = JSON.parse(body)) {
+            for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
+              photosHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
+              peopleHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+            }
+            for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_media.edges).length; i++) {
+              photosHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
+              peopleHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
+            }
+            hashNext = body.data.hashtag.edge_hashtag_to_media.page_info.end_cursor;
+          }
+        }
+        flagTwo=false;
+      });
+      while (flagTwo) {
+        await sleep(2000);
       }
-      for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_media.edges).length; i++) {
-        photosHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
-        peopleHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
-      }
-      hashNext = body.data.hashtag.edge_hashtag_to_media.page_info.end_cursor;
-      flagTwo=false;
-    });
-    while (flagTwo) {
-      await sleep(2000);
     }
+  } catch (e) {
+    console.log(e);
+    console.log('Fallo loadMoreOnHastag');
   }
 }
 
 async function searchHastag(word) {
   let flag = true;
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/explore/tags/'+word+'/?__a=1';
-  request(headerTemporal, async function(error, response, body) {
-    body = JSON.parse(body);
-    for (let i = 0; i < Object.keys(body.graphql.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
-      photosHastags[body.graphql.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
-      peopleHastags[body.graphql.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+  headerTemporal.url = `https://www.instagram.com/explore/tags/${word}/?__a=1`;
+  try {
+    request(headerTemporal, async function(error, response, body) {
+      if (response.statusCode == 200) {
+        await getError(error, response, body);
+        body = JSON.parse(body);
+        for (let i = 0; i < Object.keys(body.graphql.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
+          photosHastags[body.graphql.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
+          peopleHastags[body.graphql.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+        }
+        for (let i = 0; i < Object.keys(body.graphql.hashtag.edge_hashtag_to_media.edges).length; i++) {
+          photosHastags[body.graphql.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
+          peopleHastags[body.graphql.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
+        }
+        await loadMoreOnHastag(word, body.graphql.hashtag.edge_hashtag_to_media.page_info.end_cursor)
+      }
+      flag=false;
+    });
+    while (flag) {
+      console.log(`Searching Hastag: ${word}`);
+      await sleep(2000);
     }
-    for (let i = 0; i < Object.keys(body.graphql.hashtag.edge_hashtag_to_media.edges).length; i++) {
-      photosHastags[body.graphql.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
-      peopleHastags[body.graphql.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
-    }
-    await loadMoreOnHastag(word, body.graphql.hashtag.edge_hashtag_to_media.page_info.end_cursor)
-    flag=false;
-  });
-  while (flag) {
-    console.log('Searching Hastag: '+word);
-    await sleep(2000);
+  } catch (e) {
+    console.log(e);
+    console.log('Fallo searchHastag');
   }
 }
 
 async function getFollowers() {
   let flag = true;
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A100000%7D';
+  headerTemporal.url = `https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22${userid}%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A100000%7D`;
   headerTemporal.headers.method = 'GET';
   headerTemporal.headers['accept-encoding'] = 'deflate, br';
   try {
-    request(headerTemporal, function(error, response, body){
+    request(headerTemporal, async function(error, response, body){
+      await getError(error, response, body);
       body = JSON.parse(body);
       for (let i = 0; i < Object.keys(body.data.user.edge_followed_by.edges).length; i++) {
         followers[i] = body.data.user.edge_followed_by.edges[i].node.id;
@@ -240,17 +270,19 @@ async function getFollowers() {
     }
   } catch (e) {
     console.log(e);
+    console.log('Fallo getFollowers');
   }
 }
 
 async function getFollowing() {
   let flag = true;
   let headerTemporal = header;
-  headerTemporal.url = 'https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=%7B%22id%22%3A%22'+userid+'%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A100000%7D';
+  headerTemporal.url = `https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=%7B%22id%22%3A%22${userid}%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A100000%7D`;
   headerTemporal.headers.method = 'GET';
   headerTemporal.headers['accept-encoding'] = 'deflate, br';
   try {
-    request(headerTemporal, function(error, response, body){
+    request(headerTemporal, async function(error, response, body){
+      await getError(error, response, body);
       body = JSON.parse(body);
       for (let i = 0; i < Object.keys(body.data.user.edge_follow.edges).length; i++) {
         following[i] = body.data.user.edge_follow.edges[i].node.id;
@@ -263,6 +295,7 @@ async function getFollowing() {
     }
   } catch (e) {
     console.log(e);
+    console.log('Fallo getFollowing');
   }
 }
 
@@ -303,10 +336,11 @@ async function followHastags() {
   flagFollows = false;
 }
 
-function callback(error, response, body) {
+async function getError(error, response, body) {
   if (error || response.statusCode != 200) {
+    console.log(response.statusCode);
     console.log(body);
-    login();
+    await login();
   }
 }
 
@@ -319,7 +353,7 @@ function callback(error, response, body) {
     let contador = 0;
     while (true) {
       contador++
-      console.log('Times finished: '+ contador);
+      console.log(`Times finished: ${contador}`);
       await login();
       for (let i = 0; i < hastaggs.length; i++) {
         await searchHastag(hastaggs[i]);
