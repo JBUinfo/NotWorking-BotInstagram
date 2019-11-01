@@ -28,8 +28,8 @@ connection.connect(function(err) {
 });
 
 
-const hastaggs = ['hiphop','rap','live','trap','rapero','freestyle','musicfragments','hiphopmusic','rapper','musica','soundcloud','fragmentos','youtube','music'];
-const comentarios = ['🔥🔥🔥','👌💯','Vibes.','Niceeee  🤯','Fresh 🛸','🔝🔝🔝','Esto es 💥💥💥','💯💯💯','Me gusta lo que subes , sigue así 🔥🔥🔥','Vengo de Marte Bro 🛸👽🛸😂'];
+const hastaggs = ['car','car','car','car','car','car','car','car','car','car','car','car','car'];
+const comments = ['cool','cool','cool','cool','cool','cool','cool','cool','cool','cool','cool','cool','cool','cool','cool'];
 let photosHastags = [];
 let peopleHastags = [];
 let flagLikes = true;
@@ -176,6 +176,8 @@ function addComment(id,comment) {
         console.log(e);
         console.log('Fallo addComment');
       }
+    } else {
+      console.log('Already commented');
     }
   });
 
@@ -191,16 +193,20 @@ async function loadMoreOnHastag(word, hashNext) {
       headerTemporal.url = `https://www.instagram.com/graphql/query/?query_hash=174a5243287c5f3a7de741089750ab3b&variables=%7B%22tag_name%22%3A%22${word}%22%2C%22first%22%3A4%2C%22after%22%3A%22${hashNext}%22%7D`;
       request(headerTemporal, async function(error, response, body) {
         if (response.statusCode == 200) {
-          if (body = JSON.parse(body)) {
-            for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
-              photosHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
-              peopleHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+          try {
+            if (body = JSON.parse(body)) {
+              for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_top_posts.edges).length; i++) {
+                photosHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.id] = null;
+                peopleHastags[body.data.hashtag.edge_hashtag_to_top_posts.edges[i].node.owner.id] = null;
+              }
+              for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_media.edges).length; i++) {
+                photosHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
+                peopleHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
+              }
+              hashNext = body.data.hashtag.edge_hashtag_to_media.page_info.end_cursor;
             }
-            for (let i = 0; i < Object.keys(body.data.hashtag.edge_hashtag_to_media.edges).length; i++) {
-              photosHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.id] = null;
-              peopleHastags[body.data.hashtag.edge_hashtag_to_media.edges[i].node.owner.id] = null;
-            }
-            hashNext = body.data.hashtag.edge_hashtag_to_media.page_info.end_cursor;
+          } catch (e) {
+            console.log(e);
           }
         }
         flagTwo=false;
@@ -321,7 +327,7 @@ async function likeHastags() {
 async function commentHastags() {
   for (let e of Object.keys(photosHastags)) {
     console.log('Dejando comentario');
-    addComment(e,comentarios[Math.floor(Math.random() * comentarios.length-1)]);
+    addComment(e,comments[Math.floor(Math.random() * comments.length-1)]);
     await sleep(1000*60*MINUTES_COMMENT);
   };
   flagComments = false;
@@ -338,9 +344,20 @@ async function followHastags() {
 
 async function getError(error, response, body) {
   if (error || response.statusCode != 200) {
-    console.log(response.statusCode);
-    console.log(body);
-    await login();
+    if (response.statusCode == 400 && body != 'Sorry, this photo has been deleted') {
+      if(JSON.parse(response.body).checkpoint_url != undefined){
+        let flag = true;
+        let headerTemp = header;
+        headerTemp.url = JSON.parse(response.body).checkpoint_url;
+        request(headerTemp, async function(error, response, body) {
+          await login();
+          flag=false;
+        });
+        while (flag) {
+          sleep(1000);
+        }
+      }
+    }
   }
 }
 
